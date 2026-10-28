@@ -95,7 +95,7 @@
           <input type="text" class="name" value="${escapeHTML(person.name)}" aria-label="Attendee name" maxlength="60">
         </div>
         <div class="scores">
-          <label for="two-${person.id}">2v1 Score:</label>
+          <label for="two-${person.id}">2v2 Score:</label>
           <input id="two-${person.id}" type="number" step="any" data-score="two" value="${escapeHTML(person.two)}" placeholder="—">
           <label for="one1-${person.id}">1v1 Score 1:</label>
           <input id="one1-${person.id}" type="number" step="any" data-score="one1" value="${escapeHTML(person.one1)}" placeholder="—">
@@ -159,7 +159,7 @@
     if (!attendees.length) { notice.textContent = 'Add an attendee before copying.'; return; }
     const lines = attendees.map(person => {
       const avg = average(person);
-      return `${person.name || 'Unnamed attendee'}\n2v1 Score: ${person.two === '' ? '—' : person.two}\n1v1 Score 1: ${person.one1 === '' ? '—' : person.one1}\n1v1 Score 2: ${person.one2 === '' ? '—' : person.one2}\n1v1 Score 3: ${person.one3 === '' ? '—' : person.one3}\nFFA Score: ${person.ffa === '' ? '—' : person.ffa}\nAverage Score: ${avg.value}`;
+      return `${person.name || 'Unnamed attendee'}\n2v2 Score: ${person.two === '' ? '—' : person.two}\n1v1 Score 1: ${person.one1 === '' ? '—' : person.one1}\n1v1 Score 2: ${person.one2 === '' ? '—' : person.one2}\n1v1 Score 3: ${person.one3 === '' ? '—' : person.one3}\nFFA Score: ${person.ffa === '' ? '—' : person.ffa}\nAverage Score: ${avg.value}`;
     });
     const output = lines.join('\n\n');
     try {
