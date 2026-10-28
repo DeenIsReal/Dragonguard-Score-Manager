@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Attendee Score Tracker</title>
+<style>
+  :root { --ink:#202124; --muted:#666; --line:#dedede; --panel:#fff; --page:#f4f5f7; --accent:#292929; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--page); color:var(--ink); font-family:Arial, Helvetica, sans-serif; }
+  header { padding:30px 20px 12px; text-align:center; }
+  h1 { margin:0 0 8px; font-family:Georgia,serif; font-size:clamp(26px,4vw,36px); }
+  header p { margin:0; color:var(--muted); }
+  .toolbar { display:flex; justify-content:center; flex-wrap:wrap; gap:12px; padding:20px; }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:14px; box-shadow:0 4px 14px #0000000a; padding:18px; }
+  .tool-panel { width:min(100%,300px); }
+  .tool-panel h2 { font: bold 18px Georgia,serif; margin:0 0 14px; text-align:center; }
+  input[type="text"], input[type="number"] { width:100%; min-width:0; border:1px solid #c9c9c9; border-radius:7px; background:#fff; padding:10px 11px; font:inherit; color:var(--ink); }
+  input[type="number"] { text-align:center; }
+  button { border:0; border-radius:7px; background:var(--accent); color:white; padding:10px 14px; font:600 14px Arial,sans-serif; cursor:pointer; transition:transform .12s,opacity .12s; }
+  button:hover { opacity:.88; } button:active { transform:scale(.98); }
+  button.secondary { background:#ececec; color:#222; border:1px solid #d4d4d4; }
+  .tool-row { display:flex; gap:8px; }
+  .tool-row input { flex:1; }
+  .attendees { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,285px),1fr)); gap:18px; padding:0 20px 30px; max-width:1300px; margin:0 auto; align-items:start; }
+  .attendee { padding:20px; }
+  .attendee-head { display:flex; gap:8px; align-items:center; margin-bottom:20px; }
+  .attendee-head input { font-family:Georgia,serif; font-weight:bold; font-size:18px; text-align:center; }
+  .scores { display:grid; grid-template-columns:1fr 94px; gap:14px 10px; align-items:center; }
+  .scores label { font-family:Georgia,serif; font-weight:bold; font-size:15px; }
+  .result { margin-top:22px; border-top:1px solid var(--line); padding-top:17px; text-align:center; }
+  .result-label { font-size:13px; font-weight:700; letter-spacing:.07em; color:var(--muted); }
+  .average { font: bold 30px Georgia,serif; margin:9px 0 4px; }
+  .detail { color:var(--muted); font-size:12px; }
+  .remove { display:block; margin:17px auto 0; }
+  .empty { grid-column:1/-1; text-align:center; color:var(--muted); padding:30px; }
+  .notice { min-height:18px; text-align:center; color:#444; font-size:13px; padding:0 16px 20px; }
+  footer { text-align:center; color:#777; font-size:12px; padding:0 20px 24px; }
+  @media(max-width:500px) { .toolbar { padding:14px; } .attendees { padding:0 14px 24px; } .panel { padding:15px; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Attendee Score Tracker</h1>
+  <p>Enter scores below to calculate each attendee’s average.</p>
+</header>
+
+<section class="toolbar" aria-label="Score tracker tools">
+  <div class="panel tool-panel">
+    <h2>Add Attendee</h2>
+    <form id="addForm" class="tool-row">
+      <input id="newName" type="text" placeholder="Attendee name" maxlength="60" aria-label="New attendee name">
+      <button type="submit">Add</button>
+    </form>
+  </div>
+  <div class="panel tool-panel">
+    <h2>Copy Format</h2>
+    <button id="copyAll" class="secondary" style="display:block;margin:auto;">Copy Filled Format</button>
+  </div>
+</section>
+
+<main id="attendees" class="attendees" aria-live="polite"></main>
+<div id="notice" class="notice" role="status"></div>
+<footer>Your scores stay in this page. Blank score fields are ignored in the average.</footer>
+
+<script>
+(() => {
+  const attendeesEl = document.getElementById('attendees');
+  const notice = document.getElementById('notice');
+  let nextId = 1;
+  let attendees = [];
+
+  function average(person) {
+    const values = ['two','one1','one2','one3','ffa'].map(key => person[key])
+      .filter(value => value !== '' && Number.isFinite(Number(value)))
+      .map(Number);
+    if (!values.length) return { value: '—', count: 0, total: 0 };
+    const total = values.reduce((sum, value) => sum + value, 0);
+    return { value: (total / values.length).toLocaleString(undefined, {maximumFractionDigits: 2}), count: values.length, total };
+  }
+
+  function escapeHTML(value) {
+    return String(value).replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+  }
+
+  function render() {
+    if (!attendees.length) {
+      attendeesEl.innerHTML = '<div class="panel empty">No attendees yet. Add someone above to get started.</div>';
+      return;
+    }
+    attendeesEl.innerHTML = attendees.map(person => {
+      const avg = average(person);
+      return `<article class="panel attendee" data-id="${person.id}">
+        <div class="attendee-head">
+          <input type="text" class="name" value="${escapeHTML(person.name)}" aria-label="Attendee name" maxlength="60">
+        </div>
+        <div class="scores">
+          <label for="two-${person.id}">2v1 Score:</label>
+          <input id="two-${person.id}" type="number" step="any" data-score="two" value="${escapeHTML(person.two)}" placeholder="—">
+          <label for="one1-${person.id}">1v1 Score 1:</label>
+          <input id="one1-${person.id}" type="number" step="any" data-score="one1" value="${escapeHTML(person.one1)}" placeholder="—">
+          <label for="one2-${person.id}">1v1 Score 2:</label>
+          <input id="one2-${person.id}" type="number" step="any" data-score="one2" value="${escapeHTML(person.one2)}" placeholder="—">
+          <label for="one3-${person.id}">1v1 Score 3:</label>
+          <input id="one3-${person.id}" type="number" step="any" data-score="one3" value="${escapeHTML(person.one3)}" placeholder="—">
+          <label for="ffa-${person.id}">FFA Score:</label>
+          <input id="ffa-${person.id}" type="number" step="any" data-score="ffa" value="${escapeHTML(person.ffa)}" placeholder="—">
+        </div>
+        <div class="result">
+          <div class="result-label">AVERAGE SCORE</div>
+          <div class="average">${avg.value}</div>
+          <div class="detail">${avg.count ? `${avg.count} score${avg.count === 1 ? '' : 's'} included · Total: ${avg.total.toLocaleString(undefined,{maximumFractionDigits:2})}` : 'Enter at least one score'}</div>
+        </div>
+        <button type="button" class="secondary remove">Remove Attendee</button>
+      </article>`;
+    }).join('');
+  }
+
+  function updatePerson(card, field, value) {
+    const person = attendees.find(item => item.id === Number(card.dataset.id));
+    if (!person) return;
+    if (field === 'name') person.name = value;
+    else person[field] = value;
+    const avg = average(person);
+    card.querySelector('.average').textContent = avg.value;
+    card.querySelector('.detail').textContent = avg.count
+      ? `${avg.count} score${avg.count === 1 ? '' : 's'} included · Total: ${avg.total.toLocaleString(undefined,{maximumFractionDigits:2})}`
+      : 'Enter at least one score';
+  }
+
+  document.getElementById('addForm').addEventListener('submit', event => {
+    event.preventDefault();
+    const input = document.getElementById('newName');
+    const name = input.value.trim();
+    if (!name) { notice.textContent = 'Enter a name first.'; input.focus(); return; }
+    attendees.push({ id: nextId++, name, two: '', one1: '', one2: '', one3: '', ffa: '' });
+    input.value = '';
+    notice.textContent = '';
+    render();
+  });
+
+  attendeesEl.addEventListener('input', event => {
+    const card = event.target.closest('.attendee');
+    if (!card) return;
+    if (event.target.classList.contains('name')) updatePerson(card, 'name', event.target.value);
+    else if (event.target.dataset.score) updatePerson(card, event.target.dataset.score, event.target.value);
+  });
+
+  attendeesEl.addEventListener('click', event => {
+    const button = event.target.closest('.remove');
+    if (!button) return;
+    const card = button.closest('.attendee');
+    attendees = attendees.filter(person => person.id !== Number(card.dataset.id));
+    render();
+    notice.textContent = 'Attendee removed.';
+  });
+
+  document.getElementById('copyAll').addEventListener('click', async () => {
+    if (!attendees.length) { notice.textContent = 'Add an attendee before copying.'; return; }
+    const lines = attendees.map(person => {
+      const avg = average(person);
+      return `${person.name || 'Unnamed attendee'}\n2v1 Score: ${person.two === '' ? '—' : person.two}\n1v1 Score 1: ${person.one1 === '' ? '—' : person.one1}\n1v1 Score 2: ${person.one2 === '' ? '—' : person.one2}\n1v1 Score 3: ${person.one3 === '' ? '—' : person.one3}\nFFA Score: ${person.ffa === '' ? '—' : person.ffa}\nAverage Score: ${avg.value}`;
+    });
+    const output = lines.join('\n\n');
+    try {
+      await navigator.clipboard.writeText(output);
+      notice.textContent = 'Filled format copied to clipboard.';
+    } catch {
+      const area = document.createElement('textarea');
+      area.value = output; document.body.appendChild(area); area.select();
+      const success = document.execCommand('copy'); area.remove();
+      notice.textContent = success ? 'Filled format copied to clipboard.' : 'Copy failed. Please select and copy the scores manually.';
+    }
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>
